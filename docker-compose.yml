@@ -1,0 +1,55 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: barberflow-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: barberflow
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  barber-api:
+    build:
+      context: ./barber-api
+      dockerfile: Dockerfile
+    container_name: barberflow-api
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/barberflow?schema=public
+      JWT_SECRET: ${JWT_SECRET:-barberflow-secret-key-change-in-production}
+      PORT: 3333
+    ports:
+      - "3333:3333"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./barber-api:/app
+      - /app/node_modules
+
+  barber-front:
+    build:
+      context: ./barber-front
+      dockerfile: Dockerfile
+    container_name: barberflow-front
+    environment:
+      VITE_API_URL: http://localhost:3333
+    ports:
+      - "5173:5173"
+    depends_on:
+      - barber-api
+    volumes:
+      - ./barber-front:/app
+      - /app/node_modules
+
+volumes:
+  postgres_data:
