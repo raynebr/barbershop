@@ -21,7 +21,7 @@ export default function CadastroServico() {
 
   const fetchServices = async () => {
     try {
-      const { data } = await api.post('/services/list');
+      const { data } = await api.get('/services/list');
       setServices(data);
     } catch (err) {
       console.error('Erro ao listar serviços:', err);

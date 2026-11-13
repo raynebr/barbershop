@@ -9,11 +9,21 @@ export default function MeusAgendamentos() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [appointments, setAppointments] = useState([]);
+  const [userRole, setUserRole] = useState('CLIENT');
+  const [isBarber, setIsBarber] = useState(false);
 
   useEffect(() => {
     async function loadAppointments() {
       try {
-        const response = await api.get('/appointments/client');
+        // Busca o perfil do usuário para saber a role
+        const userResponse = await api.get('/auth/me');
+        const role = userResponse.data?.role || 'CLIENT';
+        setUserRole(role);
+        setIsBarber(role === 'BARBER');
+
+        // Busca agendamentos baseado na role
+        const endpoint = role === 'BARBER' ? '/appointments/barber' : '/appointments/client';
+        const response = await api.get(endpoint);
         setAppointments(response.data);
       } catch (err) {
         console.error("Erro ao carregar agendamentos:", err);
@@ -97,21 +107,31 @@ export default function MeusAgendamentos() {
 
       <main className="max-w-3xl mx-auto px-6 py-12">
         <header className="mb-8 text-center">
-          <h1 className="text-3xl font-bold mb-2">Meus Agendamentos</h1>
-          <p className="text-zinc-400">Acompanhe seus horários agendados</p>
+          <h1 className="text-3xl font-bold mb-2">
+            {isBarber ? 'Agenda do Barbeiro' : 'Meus Agendamentos'}
+          </h1>
+          <p className="text-zinc-400">
+            {isBarber ? 'Horários agendados com você' : 'Acompanhe seus horários agendados'}
+          </p>
         </header>
 
         {appointments.length === 0 ? (
           <div className="bg-zinc-900/50 backdrop-blur-xl border border-white/5 rounded-[2rem] p-12 text-center">
             <Calendar size={48} className="mx-auto text-zinc-600 mb-4" />
-            <h2 className="text-xl font-semibold text-white mb-2">Nenhum agendamento encontrado</h2>
-            <p className="text-zinc-400 mb-6">Você ainda não tem horários marcados.</p>
-            <button
-              onClick={() => navigate('/agendar')}
-              className="bg-white text-zinc-950 font-bold py-3 px-8 rounded-2xl hover:bg-amber-500 transition-all"
-            >
-              Agendar Horário
-            </button>
+            <h2 className="text-xl font-semibold text-white mb-2">
+              {isBarber ? 'Nenhum agendamento na sua agenda' : 'Nenhum agendamento encontrado'}
+            </h2>
+            <p className="text-zinc-400 mb-6">
+              {isBarber ? 'Nenhum cliente marcou horário com você ainda.' : 'Você ainda não tem horários marcados.'}
+            </p>
+            {!isBarber && (
+              <button
+                onClick={() => navigate('/agendar')}
+                className="bg-white text-zinc-950 font-bold py-3 px-8 rounded-2xl hover:bg-amber-500 transition-all"
+              >
+                Agendar Horário
+              </button>
+            )}
           </div>
         ) : (
           <div className="space-y-4">
@@ -136,11 +156,20 @@ export default function MeusAgendamentos() {
                       <Calendar size={16} />
                       {formatDate(appointment.date)}
                     </span>
-                    {appointment.barber && (
-                      <span className="flex items-center gap-1">
-                        <User size={16} />
-                        {appointment.barber.name}
-                      </span>
+                    {isBarber ? (
+                      appointment.client && (
+                        <span className="flex items-center gap-1">
+                          <User size={16} />
+                          Cliente: {appointment.client.name}
+                        </span>
+                      )
+                    ) : (
+                      appointment.barber && (
+                        <span className="flex items-center gap-1">
+                          <User size={16} />
+                          {appointment.barber.name}
+                        </span>
+                      )
                     )}
                     <span
                       className={`px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(appointment.status)}`}
@@ -150,7 +179,7 @@ export default function MeusAgendamentos() {
                   </div>
                 </div>
 
-                {appointment.status === 'PENDING' && (
+                {!isBarber && appointment.status === 'PENDING' && (
                   <button
                     onClick={() => handleCancelAppointment(appointment.id)}
                     className="flex items-center gap-2 px-4 py-2 bg-red-500/20 border border-red-500/50 text-red-400 rounded-lg hover:bg-red-500/30 transition-all"
